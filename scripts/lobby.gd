@@ -5,6 +5,23 @@ var detail: Label
 var status: Label
 var visited: Dictionary = {}
 var scene_font: Font
+var actor_position := Vector2(0.52, 0.77)
+var actor_destination := Vector2(0.52, 0.77)
+var pending_inspection := ""
+const WALK_SPEED := 0.32
+const DESTINATIONS := {"guard": Vector2(0.31, 0.72), "board": Vector2(0.71, 0.71), "lift": Vector2(0.52, 0.69)}
+
+func _process(delta: float) -> void:
+    if pending_inspection.is_empty():
+        return
+    var step := WALK_SPEED * delta
+    actor_position = actor_position.move_toward(actor_destination, step)
+    queue_redraw()
+    if actor_position.distance_to(actor_destination) < 0.003:
+        var arrived := pending_inspection
+        pending_inspection = ""
+        _show_inspection(arrived)
+
 var responses := {"guard": "الحارس ينظر إلى دفتر الزوار ثم يغلقه بسرعة. لا يقول لماذا.", "board": "هناك إعلان ممزق. يظهر الرقم 17 وتاريخ مُسح بالحبر.", "lift": "المصعد متوقف في طابق غير مذكور على اللوحة."}
 
 func _input(event: InputEvent) -> void:
@@ -24,6 +41,12 @@ func _inspect_at(pos: Vector2) -> void:
         _inspect("lift")
 
 func _inspect(key: String) -> void:
+    pending_inspection = key
+    actor_destination = DESTINATIONS[key]
+    status.text = "الشخصية تتحرك باتجاه العنصر..."
+    detail.text = "انتظر الوصول."
+
+func _show_inspection(key: String) -> void:
     visited[key] = true
     detail.text = responses[key]
     status.text = "مواضع تم فحصها: %d من 3" % visited.size()
@@ -66,8 +89,16 @@ func _draw() -> void:
     draw_rect(Rect2(w*.74,h*.36,w*.2,h*.14),Color("#9d998c"))
     for i in range(3):
         draw_line(Vector2(w*.755,h*(.39+i*.035)),Vector2(w*.91,h*(.39+i*.035)),Color("#555b61"),2)
+    # Player avatar: simple top-down figure for touch-to-walk testing.
+    var p := Vector2(actor_position.x * w, actor_position.y * h)
+    draw_ellipse_placeholder(p, w)
     # Wet reflection
     draw_line(Vector2(w*.36,h*.73),Vector2(w*.64,h*.73),Color("#a2a5ad",.22),3)
+
+func draw_ellipse_placeholder(p: Vector2, w: float) -> void:
+    draw_circle(p + Vector2(0, 7), w * 0.038, Color("#05080d", 0.55))
+    draw_rect(Rect2(p.x - w * 0.025, p.y - w * 0.07, w * 0.05, w * 0.065), Color("#627788"))
+    draw_circle(p + Vector2(0, -w * 0.065), w * 0.022, Color("#c7ab91"))
 
 func _build_touch_targets() -> void:
     # Real Control buttons receive touch events reliably in mobile browsers.
@@ -99,7 +130,7 @@ func _build_ui() -> void:
     var top := PanelContainer.new()
     overlay.add_child(top)
     var top_label := Label.new()
-    top_label.text = "المبنى رقم 17 - بهو الاستقبال | TOUCH V3"
+    top_label.text = "المبنى رقم 17 - بهو الاستقبال | WALK V1"
     top_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     top_label.add_theme_font_size_override("font_size",22)
     top.add_child(top_label)
@@ -115,7 +146,7 @@ func _build_ui() -> void:
     panel.add_child(controls)
     panel.mouse_filter = Control.MOUSE_FILTER_PASS
     status = Label.new()
-    status.text = "المطر بالخارج. المس الحارس أو المصعد أو اللوحة داخل المشهد."
+    status.text = "المس أحد العناصر لتتحرك الشخصية نحوه ثم تفحصه."
     status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     controls.add_child(status)
