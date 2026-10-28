@@ -94,6 +94,7 @@ func _draw() -> void:
  draw_rect(Rect2(w*.40,h*.27,w*.20,h*.27),shade.lightened(.26))
  draw_line(Vector2(w*.5,h*.27),Vector2(w*.5,h*.54),Color("#a8a5a0"),2)
  draw_circle(Vector2(w*.5,h*.18),w*.03,Color("#dfc7a0",.7))
+ _draw_environment(w,h)
  for i in range(3):
   var px := w*(.17+.33*i)
   draw_rect(Rect2(px-w*.055,h*.39,w*.11,h*.11),Color("#8e806b"))
@@ -339,3 +340,31 @@ func _finish(result: String) -> void:
  _clear_actions()
  _action_button("إغلاق",func(): action_panel.hide())
  _save()
+
+func _draw_environment(w: float, h: float) -> void:
+ var accent := Color("#86939a")
+ if room == "lobby":
+  draw_rect(Rect2(w*.05,h*.55,w*.28,h*.12),Color("#56473e"))
+  draw_circle(Vector2(w*.19,h*.48),w*.035,Color("#121922"))
+ elif room == "lift":
+  draw_rect(Rect2(w*.31,h*.25,w*.38,h*.35),accent)
+  draw_line(Vector2(w*.50,h*.25),Vector2(w*.50,h*.60),Color("#d0d2d3"),3)
+ elif room == "hall":
+  draw_rect(Rect2(w*.07,h*.34,w*.22,h*.28),accent.darkened(.3))
+  draw_rect(Rect2(w*.71,h*.34,w*.22,h*.28),accent.darkened(.2))
+ elif room == "apartment":
+  draw_rect(Rect2(w*.09,h*.33,w*.34,h*.19),Color("#536d7b"))
+  draw_rect(Rect2(w*.58,h*.54,w*.30,h*.09),Color("#6a554a"))
+ elif room == "records":
+  for i in range(3):
+   draw_rect(Rect2(w*(.08+i*.30),h*.30,w*.24,h*.30),Color("#656157"))
+ elif room == "stairwell":
+  for i in range(5):
+   draw_rect(Rect2(w*(.10+i*.13),h*(.59-i*.05),w*.28,h*.045),accent.darkened(.2))
+ elif room == "roof":
+  for i in range(7):
+   draw_rect(Rect2(w*(.05+i*.13),h*.46,w*.10,h*.17),Color("#14212c"))
+  draw_line(Vector2(w*.69,h*.24),Vector2(w*.69,h*.54),accent,3)
+ elif room == "maintenance":
+  for i in range(4):
+   draw_rect(Rect2(w*(.10+i*.20),h*.36,w*.14,h*.23),Color("#5d584f"))
