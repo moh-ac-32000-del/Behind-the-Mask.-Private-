@@ -8,16 +8,25 @@ var scene_font: Font
 var actor_position := Vector2(0.52, 0.77)
 var actor_destination := Vector2(0.52, 0.77)
 var pending_inspection := ""
+var flags := {"guard": false, "board": false, "lift": false}
+var choices := {}
+var dialogue: PanelContainer
+var dialogue_text: Label
+var dialogue_actions: VBoxContainer
+var notebook_panel: PanelContainer
+var notebook_text: Label
+var story_finished := false
+const LOBBY_SAVE := "user://lobby_progress.json"
 const WALK_SPEED := 0.32
 const DESTINATIONS := {"guard": Vector2(0.31, 0.72), "board": Vector2(0.71, 0.71), "lift": Vector2(0.52, 0.69)}
 
 func _process(delta: float) -> void:
-    if pending_inspection.is_empty():
+    if actor_position.distance_to(actor_destination) < 0.003:
         return
     var step := WALK_SPEED * delta
     actor_position = actor_position.move_toward(actor_destination, step)
     queue_redraw()
-    if actor_position.distance_to(actor_destination) < 0.003:
+    if actor_position.distance_to(actor_destination) < 0.003 and not pending_inspection.is_empty():
         var arrived := pending_inspection
         pending_inspection = ""
         _show_inspection(arrived)
@@ -33,7 +42,11 @@ func _input(event: InputEvent) -> void:
 func _inspect_at(pos: Vector2) -> void:
     var x := pos.x / maxf(size.x, 1.0)
     var y := pos.y / maxf(size.y, 1.0)
-    if y >= 0.42 and y <= 0.67 and x <= 0.34:
+    if y >= 0.69 and y <= 0.81 and x >= 0.07 and x <= 0.93:
+        pending_inspection = ""
+        actor_destination = Vector2(clampf(x, 0.08, 0.92), clampf(y, 0.69, 0.80))
+        status.text = "تتحرك الشخصية إلى الموضع المحدد."
+    elif y >= 0.42 and y <= 0.67 and x <= 0.34:
         _inspect("guard")
     elif y >= 0.32 and y <= 0.54 and x >= 0.70:
         _inspect("board")
@@ -48,8 +61,11 @@ func _inspect(key: String) -> void:
 
 func _show_inspection(key: String) -> void:
     visited[key] = true
+    flags[key] = true
     detail.text = responses[key]
-    status.text = "مواضع تم فحصها: %d من 3" % visited.size()
+    status.text = "تم استكشاف %d من 3 عناصر" % visited.size()
+    _open_dialogue(key)
+    _save_lobby()
 
 func _ready() -> void:
     var font_path := "res://assets/fonts/NotoSansArabic-Regular.ttf"
@@ -59,6 +75,8 @@ func _ready() -> void:
         theme.default_font = scene_font
     _build_ui()
     _build_touch_targets()
+    _build_story_panels()
+    _load_lobby()
     resized.connect(queue_redraw)
     queue_redraw()
 
@@ -130,7 +148,7 @@ func _build_ui() -> void:
     var top := PanelContainer.new()
     overlay.add_child(top)
     var top_label := Label.new()
-    top_label.text = "المبنى رقم 17 - بهو الاستقبال | WALK V1"
+    top_label.text = "المبنى رقم 17 - فصل الاستقبال"
     top_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     top_label.add_theme_font_size_override("font_size",22)
     top.add_child(top_label)
@@ -155,9 +173,14 @@ func _build_ui() -> void:
     detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     controls.add_child(detail)
-    _add_hotspot(controls, "الحارس عند المكتب", "guard", "الحارس ينظر إلى دفتر الزوار ثم يغلقه بسرعة. لا يقول لماذا.")
-    _add_hotspot(controls, "لوحة الإعلانات", "board", "هناك إعلان ممزق. يظهر الرقم 17 وتاريخ مُسح بالحبر.")
-    _add_hotspot(controls, "باب المصعد", "lift", "المصعد متوقف في طابق غير مذكور على اللوحة.")
+    _add_hotspot(controls, "التحدث مع الحارس", "guard", "")
+    _add_hotspot(controls, "فحص لوحة الإعلانات", "board", "")
+    _add_hotspot(controls, "فحص المصعد", "lift", "")
+    var journal := Button.new()
+    journal.text = "دفتر الأدلة والقرارات"
+    journal.custom_minimum_size.y = 48
+    journal.pressed.connect(_show_notebook)
+    controls.add_child(journal)
     var back := Button.new()
     back.text = "العودة إلى القائمة"
     back.custom_minimum_size.y = 48
@@ -170,3 +193,125 @@ func _add_hotspot(parent: VBoxContainer, caption: String, key: String, response:
     button.custom_minimum_size.y = 52
     button.pressed.connect(func(): _inspect(key))
     parent.add_child(button)
+
+func _build_story_panels() -> void:
+    dialogue = PanelContainer.new()
+    dialogue.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+    dialogue.anchor_left = 0.06
+    dialogue.anchor_right = 0.94
+    dialogue.anchor_top = 0.22
+    dialogue.anchor_bottom = 0.62
+    dialogue.offset_left = 0
+    dialogue.offset_right = 0
+    dialogue.offset_top = 0
+    dialogue.offset_bottom = 0
+    dialogue.visible = false
+    dialogue.mouse_filter = Control.MOUSE_FILTER_STOP
+    add_child(dialogue)
+    var column := VBoxContainer.new()
+    column.add_theme_constant_override("separation", 12)
+    dialogue.add_child(column)
+    dialogue_text = Label.new()
+    dialogue_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    dialogue_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    dialogue_text.add_theme_font_size_override("font_size", 21)
+    column.add_child(dialogue_text)
+    dialogue_actions = VBoxContainer.new()
+    column.add_child(dialogue_actions)
+    notebook_panel = PanelContainer.new()
+    notebook_panel.anchor_left = 0.06
+    notebook_panel.anchor_right = 0.94
+    notebook_panel.anchor_top = 0.22
+    notebook_panel.anchor_bottom = 0.62
+    notebook_panel.visible = false
+    add_child(notebook_panel)
+    var notebook_column := VBoxContainer.new()
+    notebook_panel.add_child(notebook_column)
+    notebook_text = Label.new()
+    notebook_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    notebook_column.add_child(notebook_text)
+    var close := Button.new()
+    close.text = "إغلاق الدفتر"
+    close.pressed.connect(func(): notebook_panel.hide())
+    notebook_column.add_child(close)
+
+func _open_dialogue(key: String) -> void:
+    dialogue.show()
+    for child in dialogue_actions.get_children():
+        child.queue_free()
+    match key:
+        "guard":
+            dialogue_text.text = "الحارس: تأخرت الليلة. لم أتوقع وصول ساكن جديد بعد منتصف الليل. هل تريد تسجيل اسمك؟"
+            _dialogue_choice("أعطه اسمك الحقيقي", "guard_identity", "real", "يسجل الحارس الاسم ثم يخفي صفحة سابقة من الدفتر.")
+            _dialogue_choice("استخدم اسمًا مستعارًا", "guard_identity", "alias", "يتردد الحارس، لكنه يقبل الاسم المستعار.")
+        "board":
+            dialogue_text.text = "تحت إعلان الصيانة ورقة قديمة. الرقم 17 مكتوب بجانب كلمة «مرآة». هل تحتفظ بصورة منها؟"
+            _dialogue_choice("احتفظ بنسخة من الإعلان", "notice", "copied", "أضفت قصاصة الإعلان إلى دفتر الأدلة.")
+            _dialogue_choice("أعد الورقة إلى مكانها", "notice", "left", "تركت الورقة كما كانت. قد تعود إليها لاحقًا.")
+        "lift":
+            if not flags["guard"] or not flags["board"]:
+                dialogue_text.text = "المصعد لا يستجيب. ربما يجدر بك سؤال الحارس وفحص لوحة الإعلانات أولًا."
+                _dialogue_close_button()
+            else:
+                dialogue_text.text = "أضاء زر الطابق السابع دون أن تلمسه. تسمع صوتًا يقول: «الاختبار بدأ». ماذا تفعل؟"
+                _dialogue_choice("اصعد إلى الطابق السابع", "ending", "up", "انغلق باب المصعد. في الداخل انعكاسك يتأخر عن حركتك. نهاية فصل الاستقبال.")
+                _dialogue_choice("ابتعد واطلب تفسيرًا", "ending", "wait", "ابتعدت عن المصعد. انطفأت الأضواء وظهر اسمك على شاشة الطابق. نهاية فصل الاستقبال.")
+
+func _dialogue_choice(caption: String, key: String, value: String, result: String) -> void:
+    var button := Button.new()
+    button.text = caption
+    button.custom_minimum_size.y = 48
+    button.pressed.connect(func():
+        choices[key] = value
+        if key == "ending":
+            story_finished = true
+        dialogue_text.text = result
+        for child in dialogue_actions.get_children():
+            child.queue_free()
+        _dialogue_close_button()
+        _save_lobby()
+    )
+    dialogue_actions.add_child(button)
+
+func _dialogue_close_button() -> void:
+    var close := Button.new()
+    close.text = "متابعة الاستكشاف"
+    close.custom_minimum_size.y = 48
+    close.pressed.connect(func(): dialogue.hide())
+    dialogue_actions.add_child(close)
+
+func _show_notebook() -> void:
+    dialogue.hide()
+    var lines := ["دفتر الأدلة", "العناصر المكتشفة: %d من 3" % visited.size()]
+    if flags["board"] and choices.get("notice", "") == "copied":
+        lines.append("دليل: إعلان قديم يذكر مشروع المرآة.")
+    if flags["guard"]:
+        lines.append("ملاحظة: الحارس يخفي صفحة من دفتر الزوار.")
+    if flags["lift"]:
+        lines.append("ملاحظة: المصعد يتوقف عند طابق غامض.")
+    if not choices.is_empty():
+        lines.append("قراراتك محفوظة محليًا: %d" % choices.size())
+    if story_finished:
+        lines.append("اكتمل فصل الاستقبال.")
+    notebook_text.text = "\n".join(PackedStringArray(lines))
+    notebook_panel.show()
+
+func _save_lobby() -> void:
+    var file := FileAccess.open(LOBBY_SAVE, FileAccess.WRITE)
+    if file != null:
+        file.store_string(JSON.stringify({"visited": visited, "flags": flags, "choices": choices, "finished": story_finished}))
+
+func _load_lobby() -> void:
+    if not FileAccess.file_exists(LOBBY_SAVE):
+        return
+    var file := FileAccess.open(LOBBY_SAVE, FileAccess.READ)
+    if file == null:
+        return
+    var parsed: Variant = JSON.parse_string(file.get_as_text())
+    if not parsed is Dictionary:
+        return
+    visited = parsed.get("visited", {})
+    flags = parsed.get("flags", flags)
+    choices = parsed.get("choices", {})
+    story_finished = bool(parsed.get("finished", false))
+    status.text = "استُعيد التقدم: %d عناصر مكتشفة" % visited.size()
