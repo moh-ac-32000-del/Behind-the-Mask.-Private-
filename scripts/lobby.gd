@@ -42,7 +42,7 @@ func _inspect_at(pos: Vector2) -> void:
 
 func _inspect(key: String) -> void:
     pending_inspection = key
-    actor_destination = DESTINATIONS[key]
+    actor_destination = DESTINATIONS[key] as Vector2
     status.text = "الشخصية تتحرك باتجاه العنصر..."
     detail.text = "انتظر الوصول."
 
