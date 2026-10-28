@@ -100,6 +100,7 @@ func _setup() -> void:
     var player_field := LineEdit.new()
     player_field.placeholder_text = "اسم اللاعب أو اسم مستعار"
     player_field.text_direction = Control.TEXT_DIRECTION_RTL
+    player_field.virtual_keyboard_enabled = true
     content.add_child(player_field)
     names_input.clear()
     for i in range(ROLES.size()):
@@ -107,6 +108,7 @@ func _setup() -> void:
         var field := LineEdit.new()
         field.text = DEFAULT_NAMES[i]
         field.text_direction = Control.TEXT_DIRECTION_RTL
+        field.virtual_keyboard_enabled = true
         content.add_child(field)
         names_input.append(field)
     var consent := CheckBox.new()
