@@ -169,5 +169,5 @@ func _discover() -> void:
 func _notebook() -> void:
     _layout("دفتر الأدلة")
     var evidence: Array = state.get("evidence", [])
-    _label("لم تُكتشف أدلة بعد." if evidence.is_empty() else "\n".join(evidence))
+    _label("لم تُكتشف أدلة بعد." if evidence.is_empty() else "\n".join(PackedStringArray(evidence)))
     _button("عودة إلى القصة", _scene)
