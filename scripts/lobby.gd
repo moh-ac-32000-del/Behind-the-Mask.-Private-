@@ -35,6 +35,7 @@ func _ready() -> void:
         theme = Theme.new()
         theme.default_font = scene_font
     _build_ui()
+    _build_touch_targets()
     resized.connect(queue_redraw)
     queue_redraw()
 
@@ -68,19 +69,41 @@ func _draw() -> void:
     # Wet reflection
     draw_line(Vector2(w*.36,h*.73),Vector2(w*.64,h*.73),Color("#a2a5ad",.22),3)
 
+func _build_touch_targets() -> void:
+    # Real Control buttons receive touch events reliably in mobile browsers.
+    # Drawn scenery itself is not a GUI input target.
+    _touch_target("guard", Vector2(0.08, 0.41), Vector2(0.30, 0.67))
+    _touch_target("lift", Vector2(0.34, 0.25), Vector2(0.67, 0.65))
+    _touch_target("board", Vector2(0.70, 0.32), Vector2(0.98, 0.55))
+
+func _touch_target(key: String, start: Vector2, finish: Vector2) -> void:
+    var target := Button.new()
+    target.name = "Touch_" + key
+    target.flat = true
+    target.focus_mode = Control.FOCUS_NONE
+    target.text = ""
+    target.anchor_left = start.x
+    target.anchor_top = start.y
+    target.anchor_right = finish.x
+    target.anchor_bottom = finish.y
+    target.mouse_filter = Control.MOUSE_FILTER_STOP
+    target.pressed.connect(func(): _inspect(key))
+    add_child(target)
+
 func _build_ui() -> void:
     var overlay := VBoxContainer.new()
     overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     overlay.add_theme_constant_override("separation", 12)
-    overlay.mouse_filter = Control.MOUSE_FILTER_PASS
+    overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(overlay)
     var top := PanelContainer.new()
     overlay.add_child(top)
     var top_label := Label.new()
-    top_label.text = "المبنى رقم 17 - بهو الاستقبال"
+    top_label.text = "المبنى رقم 17 - بهو الاستقبال | TOUCH V3"
     top_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     top_label.add_theme_font_size_override("font_size",22)
     top.add_child(top_label)
+    top.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var gap := Control.new()
     gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
     gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -90,6 +113,7 @@ func _build_ui() -> void:
     var controls := VBoxContainer.new()
     controls.add_theme_constant_override("separation", 8)
     panel.add_child(controls)
+    panel.mouse_filter = Control.MOUSE_FILTER_PASS
     status = Label.new()
     status.text = "المطر بالخارج. المس الحارس أو المصعد أو اللوحة داخل المشهد."
     status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
