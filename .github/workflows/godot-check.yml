@@ -19,7 +19,13 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y fonts-noto-core
           mkdir -p assets/fonts
-          cp /usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf assets/fonts/NotoSansArabic-Regular.ttf
+          FONT_PATH="$(find /usr/share/fonts -type f -iname "*NotoSansArabic*Regular*.ttf" -print -quit)"
+          if [ -z "$FONT_PATH" ]; then
+            echo "Arabic font not found after installation"
+            find /usr/share/fonts -iname "*Arabic*" | head -30
+            exit 1
+          fi
+          cp "$FONT_PATH" assets/fonts/NotoSansArabic-Regular.ttf
           test -s assets/fonts/NotoSansArabic-Regular.ttf
       - name: Download Godot and export templates
         run: |
