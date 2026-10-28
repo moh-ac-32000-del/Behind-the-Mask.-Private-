@@ -83,6 +83,7 @@ func _menu() -> void:
     _layout("ما وراء القناع")
     _label("المبنى رقم 17", 19)
     _label("نموذج تفاعلي مبكر. القرارات هنا سردية وليست اختبارًا نفسيًا.", 17)
+    _button("استكشاف المبنى - خمس مناطق", func(): get_tree().change_scene_to_file("res://scenes/exploration.tscn"))
     _button("معاينة بهو المبنى التفاعلي", _lobby_preview)
     _button("بدء جولة جديدة", _setup)
     if FileAccess.file_exists(SAVE_PATH):
