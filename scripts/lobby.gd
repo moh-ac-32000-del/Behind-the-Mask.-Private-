@@ -5,6 +5,28 @@ var detail: Label
 var status: Label
 var visited: Dictionary = {}
 var scene_font: Font
+var responses := {"guard": "الحارس ينظر إلى دفتر الزوار ثم يغلقه بسرعة. لا يقول لماذا.", "board": "هناك إعلان ممزق. يظهر الرقم 17 وتاريخ مُسح بالحبر.", "lift": "المصعد متوقف في طابق غير مذكور على اللوحة."}
+
+func _gui_input(event: InputEvent) -> void:
+    if event is InputEventScreenTouch and event.pressed:
+        _inspect_at(event.position)
+    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+        _inspect_at(event.position)
+
+func _inspect_at(pos: Vector2) -> void:
+    var x := pos.x / maxf(size.x, 1.0)
+    var y := pos.y / maxf(size.y, 1.0)
+    if y >= 0.42 and y <= 0.67 and x <= 0.34:
+        _inspect("guard")
+    elif y >= 0.32 and y <= 0.54 and x >= 0.70:
+        _inspect("board")
+    elif y >= 0.26 and y <= 0.65 and x >= 0.34 and x <= 0.67:
+        _inspect("lift")
+
+func _inspect(key: String) -> void:
+    visited[key] = true
+    detail.text = responses[key]
+    status.text = "مواضع تم فحصها: %d من 3" % visited.size()
 
 func _ready() -> void:
     var font_path := "res://assets/fonts/NotoSansArabic-Regular.ttf"
@@ -89,9 +111,5 @@ func _add_hotspot(parent: VBoxContainer, caption: String, key: String, response:
     var button := Button.new()
     button.text = caption
     button.custom_minimum_size.y = 52
-    button.pressed.connect(func():
-        visited[key] = true
-        detail.text = response
-        status.text = "مواضع تم فحصها: %d من 3" % visited.size()
-    )
+    button.pressed.connect(func(): _inspect(key))
     parent.add_child(button)
