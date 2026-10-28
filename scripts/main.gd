@@ -8,9 +8,15 @@ const DEFAULT_NAMES = ["سليم", "نادر", "ليان", "آدم", "رامي",
 
 var state: Dictionary = {}
 var names_input: Array[LineEdit] = []
+const ARABIC_FONT_PATH = "res://assets/fonts/NotoSansArabic-Regular.ttf"
 var content: VBoxContainer
 
 func _ready() -> void:
+    if ResourceLoader.exists(ARABIC_FONT_PATH):
+        var arabic_font := load(ARABIC_FONT_PATH) as Font
+        if arabic_font != null:
+            theme = Theme.new()
+            theme.default_font = arabic_font
     _menu()
 
 func _fresh_state() -> Dictionary:
@@ -50,6 +56,7 @@ func _layout(title: String) -> void:
     scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     margin.add_child(scroll)
     content = VBoxContainer.new()
+    content.layout_direction = Control.LAYOUT_DIRECTION_RTL
     content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     content.add_theme_constant_override("separation", 12)
     scroll.add_child(content)
@@ -58,6 +65,8 @@ func _layout(title: String) -> void:
 func _label(value: String, size: int = 20) -> void:
     var item := Label.new()
     item.text = value
+    item.text_direction = Control.TEXT_DIRECTION_RTL
+    item.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     item.add_theme_font_size_override("font_size", size)
     item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     content.add_child(item)
@@ -65,6 +74,7 @@ func _label(value: String, size: int = 20) -> void:
 func _button(label: String, callback: Callable) -> void:
     var b := Button.new()
     b.text = label
+    b.text_direction = Control.TEXT_DIRECTION_RTL
     b.custom_minimum_size = Vector2(0, 54)
     b.pressed.connect(callback)
     content.add_child(b)
@@ -88,12 +98,14 @@ func _setup() -> void:
     _label("يمكنك ترك الأسماء الافتراضية. كل اسم يشغل دورًا رئيسيًا في القصة.", 17)
     var player_field := LineEdit.new()
     player_field.placeholder_text = "اسم اللاعب أو اسم مستعار"
+    player_field.text_direction = Control.TEXT_DIRECTION_RTL
     content.add_child(player_field)
     names_input.clear()
     for i in range(ROLES.size()):
         _label(ROLES[i], 16)
         var field := LineEdit.new()
         field.text = DEFAULT_NAMES[i]
+        field.text_direction = Control.TEXT_DIRECTION_RTL
         content.add_child(field)
         names_input.append(field)
     var consent := CheckBox.new()
