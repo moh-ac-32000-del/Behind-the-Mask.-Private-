@@ -80,7 +80,8 @@ func _button(label: String, callback: Callable) -> void:
     content.add_child(b)
 
 func _menu() -> void:
-    _layout("ما وراء القناع | المبنى رقم 17")
+    _layout("ما وراء القناع")
+    _label("المبنى رقم 17", 19)
     _label("نموذج تفاعلي مبكر. القرارات هنا سردية وليست اختبارًا نفسيًا.", 17)
     _button("بدء جولة جديدة", _setup)
     if FileAccess.file_exists(SAVE_PATH):
