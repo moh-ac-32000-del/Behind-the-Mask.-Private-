@@ -28,7 +28,9 @@ func _load() -> bool:
     if file == null:
         return false
     var parsed: Variant = JSON.parse_string(file.get_as_text())
-    if not parsed is Dictionary or int(parsed.get("version", 0)) != 2:
+    if not (parsed is Dictionary):
+        return false
+    if int(parsed.get("version", 0)) != 2:
         return false
     state = parsed
     return true
@@ -148,7 +150,7 @@ func _scene() -> void:
         4:
             _label("نهاية النموذج الأولي. ما حدث هنا هو بداية القصة، وليس تقريرًا عن شخصيتك.")
             _label("قرار الهاتف: " + str(state.get("phone", "غير محدد")), 16)
-            _label("الأدلة: " + ", ".join(state.get("evidence", [])), 16)
+            _label("الأدلة: " + ", ".join(PackedStringArray(state.get("evidence", []))), 16)
             _button("العودة للقائمة", _menu)
         _:
             _button("العودة للقائمة", _menu)
