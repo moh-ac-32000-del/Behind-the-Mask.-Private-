@@ -4,9 +4,12 @@ const SAVE := "user://exploration_v1.json"
 const ROOMS := {
  "lobby": {"title":"بهو الاستقبال", "color":"#273447", "exits":{"lift":"المصعد"}, "objects":{"guard":"الحارس", "board":"لوحة الإعلانات", "lift":"باب المصعد"}},
  "lift": {"title":"المصعد", "color":"#343b45", "exits":{"lobby":"العودة إلى الاستقبال", "hall":"الطابق السابع"}, "objects":{"panel":"لوحة الطوابق", "mirror":"المرآة"}},
- "hall": {"title":"ممر الطابق السابع", "color":"#29353a", "exits":{"lift":"المصعد", "apartment":"الشقة 703", "records":"غرفة السجلات"}, "objects":{"door":"باب مخدوش", "camera":"كاميرا المراقبة"}},
+ "hall": {"title":"ممر الطابق السابع", "color":"#29353a", "exits":{"lift":"المصعد", "apartment":"الشقة 703", "records":"غرفة السجلات", "stairwell":"درج الطوارئ"}, "objects":{"door":"باب مخدوش", "camera":"كاميرا المراقبة"}},
  "apartment": {"title":"الشقة 703", "color":"#40383d", "exits":{"hall":"العودة إلى الممر"}, "objects":{"phone":"هاتف مجهول", "letter":"رسالة مطوية", "window":"النافذة"}},
- "records": {"title":"غرفة السجلات", "color":"#34342d", "exits":{"hall":"العودة إلى الممر"}, "objects":{"cabinet":"خزانة الملفات", "terminal":"الحاسوب", "file":"الملف 17"}}
+ "records": {"title":"غرفة السجلات", "color":"#34342d", "exits":{"hall":"العودة إلى الممر"}, "objects":{"cabinet":"خزانة الملفات", "terminal":"الحاسوب", "file":"الملف 17"}},
+ "stairwell":{"title":"درج الطوارئ", "color":"#252d33", "exits":{"hall":"الممر", "roof":"السطح"}, "objects":{"chalk":"رسالة على الجدار", "steps":"آثار أقدام"}},
+ "roof":{"title":"سطح المبنى", "color":"#202c3c", "exits":{"stairwell":"الدرج", "maintenance":"غرفة الصيانة"}, "objects":{"antenna":"هوائي الإرسال", "sky":"الأفق"}},
+ "maintenance":{"title":"غرفة الصيانة", "color":"#3b3430", "exits":{"roof":"السطح"}, "objects":{"switch":"قاطع الكهرباء", "recorder":"جهاز التسجيل"}}
 }
 const ITEMS := {
  "board":{"title":"قصاصة الإعلان", "text":"تاريخ ممحو، ورمز صغير: مرآة 17.", "choice":"نسخ الإعلان"},
@@ -20,6 +23,12 @@ const ITEMS := {
  "terminal":{"title":"الحاسوب", "text":"شاشة تعرض مشروع المرآة وحالة التجربة: نشطة.", "choice":"حفظ سجل التجربة"},
  "file":{"title":"الملف 17", "text":"يحمل الملف اسم الزائر وتاريخ وصول لم يحدث بعد.", "choice":"فتح الملف"},
  "panel":{"title":"لوحة الطوابق", "text":"زر الطابق السابع مضاء دون أن تضغطه.", "choice":"فحص اللوحة"},
+ "chalk":{"title":"الكتابة على الجدار","text":"لا تنظر إلى وجهك مرتين.","choice":"تصوير العبارة"},
+ "steps":{"title":"آثار أقدام","text":"آثار حذاء مبلل تصعد نحو السطح ولا تعود.","choice":"تتبع الآثار"},
+ "antenna":{"title":"هوائي الإرسال","text":"هوائي قديم يرسل إشارة كل سبع عشرة ثانية.","choice":"تسجيل التردد"},
+ "sky":{"title":"الأفق","text":"تبدو المدينة هادئة بصورة غير طبيعية.","choice":"تسجيل المشهد"},
+ "switch":{"title":"قاطع الكهرباء","text":"خط الطاقة الخاص بغرفة السجلات يعمل رغم انقطاع الكهرباء.","choice":"فحص الأسلاك"},
+ "recorder":{"title":"جهاز التسجيل","text":"صوتك يتحدث في تسجيل مؤرخ بالغد.","choice":"نسخ التسجيل"},
  "guard":{"title":"الحارس", "text":"الحارس: لا أذكر أنني رأيتك من قبل. ثم يهمس: لا تعد إلى الطابق السابع.", "choice":"سؤاله عن المشروع"}
 }
 var room := "lobby"
@@ -37,6 +46,9 @@ var action_buttons: VBoxContainer
 var journal_panel: PanelContainer
 var journal_text: Label
 var exit_box: VBoxContainer
+var chapter_stage := 0
+var finale := ""
+const REQUIRED_CLUES := ["board", "phone", "terminal", "file", "recorder"]
 
 func _ready() -> void:
  var font_path := "res://assets/fonts/NotoSansArabic-Regular.ttf"
@@ -157,6 +169,7 @@ func _ui() -> void:
 
 func _render_room() -> void:
  title_label.text = "المبنى 17 - " + str(ROOMS[room]["title"])
+ _update_stage()
  info_label.text = "المس العناصر لفحصها أو المس الأرض للتحرك."
  for button in scene_buttons:
   button.queue_free()
@@ -202,12 +215,21 @@ func _interact(key: String) -> void:
  var item: Dictionary = ITEMS[key]
  action_text.text = str(item["title"]) + "\n" + str(item["text"])
  _clear_actions()
+ if key == "file" and not discovered.has("terminal"):
+  action_text.text += "\nالملف مقفل. ابحث عن سجل المشروع في الحاسوب أولًا."
+ elif key == "file" and discovered.has("terminal"):
+  action_text.text += "\nرقم الملف يطابق رقم التجربة. الاسم الموجود بداخله هو اسمك."
+ if key == "recorder" and discovered.has("file"):
+  action_text.text += "\nالتسجيل يشير إلى أن نسخة أخرى منك وصلت قبلك."
  _action_button(str(item["choice"]),func():
   decisions[key] = str(item["choice"])
   info_label.text = "تم تسجيل القرار في دفتر الأدلة."
+  _update_stage()
   _save()
   action_panel.hide()
  )
+ if key == "recorder" and _all_clues_found():
+  _action_button("واجه الحقيقة",func(): _ending_dialogue())
  _action_button("إغلاق",func(): action_panel.hide())
  action_panel.show()
  _save()
@@ -226,6 +248,12 @@ func _action_button(caption: String, callback: Callable) -> void:
 func _change_room(next_room: String) -> void:
  if not ROOMS.has(next_room):
   return
+ if next_room == "records" and not discovered.has("camera"):
+  info_label.text = "غرفة السجلات مغلقة. ابحث عن كاميرا المراقبة في الممر."
+  return
+ if next_room == "maintenance" and not discovered.has("antenna"):
+  info_label.text = "باب الصيانة لا يفتح. افحص هوائي السطح أولًا."
+  return
  room = next_room
  pending = ""
  player = Vector2(.5,.73)
@@ -242,6 +270,13 @@ func _journal() -> void:
   if ITEMS.has(key):
    lines.append("• " + str(ITEMS[key]["title"]))
  lines.append("القرارات المحفوظة: %d" % decisions.size())
+ lines.append("تقدم التحقيق: المرحلة %d من 3" % chapter_stage)
+ for clue in REQUIRED_CLUES:
+  if not discovered.has(clue):
+   lines.append("دليل مطلوب لم يُكتشف بعد.")
+   break
+ if not finale.is_empty():
+  lines.append("نهاية التحقيق: " + finale)
  if discovered.has("file") and discovered.has("terminal"):
   lines.append("اكتشاف: بيانات الملف 17 مرتبطة بمشروع المرآة.")
  journal_text.text = "\n".join(lines)
@@ -250,7 +285,7 @@ func _journal() -> void:
 func _save() -> void:
  var file := FileAccess.open(SAVE,FileAccess.WRITE)
  if file != null:
-  file.store_string(JSON.stringify({"room":room,"discovered":discovered,"decisions":decisions}))
+  file.store_string(JSON.stringify({"room":room,"discovered":discovered,"decisions":decisions,"chapter_stage":chapter_stage,"finale":finale}))
 
 func _load() -> void:
  if not FileAccess.file_exists(SAVE):
@@ -265,3 +300,42 @@ func _load() -> void:
    room = "lobby"
   discovered = parsed.get("discovered",{})
   decisions = parsed.get("decisions",{})
+  chapter_stage = int(parsed.get("chapter_stage",0))
+  finale = str(parsed.get("finale",""))
+
+func _all_clues_found() -> bool:
+ for clue in REQUIRED_CLUES:
+  if not discovered.has(clue):
+   return false
+ return true
+
+func _update_stage() -> void:
+ var count := 0
+ for clue in REQUIRED_CLUES:
+  if discovered.has(clue):
+   count += 1
+ if count >= 5:
+  chapter_stage = 3
+ elif count >= 3:
+  chapter_stage = 2
+ elif count >= 1:
+  chapter_stage = 1
+ else:
+  chapter_stage = 0
+ if info_label != null and finale.is_empty():
+  info_label.text = "التحقيق: %d من %d أدلة رئيسية" % [count,REQUIRED_CLUES.size()]
+
+func _ending_dialogue() -> void:
+ action_text.text = "صوت التسجيل يقول: أنت لم تدخل المبنى للمرة الأولى. ماذا ستفعل بالحقيقة؟"
+ _clear_actions()
+ _action_button("أكشف المشروع للسكان",func(): _finish("كشف الحقيقة"))
+ _action_button("أخفي الملف وأبحث عن النسخة الأخرى",func(): _finish("البحث عن النسخة"))
+ _action_button("تراجع الآن",func(): action_panel.hide())
+
+func _finish(result: String) -> void:
+ finale = result
+ decisions["finale"] = result
+ action_text.text = "نهاية الفصل التجريبي: " + result + "\nلكن من الذي كان يراقب قراراتك؟"
+ _clear_actions()
+ _action_button("إغلاق",func(): action_panel.hide())
+ _save()
