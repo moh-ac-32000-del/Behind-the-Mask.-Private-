@@ -7,7 +7,7 @@ var visited: Dictionary = {}
 var scene_font: Font
 var responses := {"guard": "الحارس ينظر إلى دفتر الزوار ثم يغلقه بسرعة. لا يقول لماذا.", "board": "هناك إعلان ممزق. يظهر الرقم 17 وتاريخ مُسح بالحبر.", "lift": "المصعد متوقف في طابق غير مذكور على اللوحة."}
 
-func _gui_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
     if event is InputEventScreenTouch and event.pressed:
         _inspect_at(event.position)
     elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -72,16 +72,18 @@ func _build_ui() -> void:
     var overlay := VBoxContainer.new()
     overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     overlay.add_theme_constant_override("separation", 12)
+    overlay.mouse_filter = Control.MOUSE_FILTER_PASS
     add_child(overlay)
     var top := PanelContainer.new()
     overlay.add_child(top)
     var top_label := Label.new()
-    top_label.text = "المبنى رقم 17 | بهو الاستقبال"
+    top_label.text = "المبنى رقم 17 - بهو الاستقبال"
     top_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     top_label.add_theme_font_size_override("font_size",22)
     top.add_child(top_label)
     var gap := Control.new()
     gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
     overlay.add_child(gap)
     var panel := PanelContainer.new()
     overlay.add_child(panel)
@@ -89,7 +91,7 @@ func _build_ui() -> void:
     controls.add_theme_constant_override("separation", 8)
     panel.add_child(controls)
     status = Label.new()
-    status.text = "المطر بالخارج. أمامك ثلاثة مواضع تستحق الفحص."
+    status.text = "المطر بالخارج. المس الحارس أو المصعد أو اللوحة داخل المشهد."
     status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     controls.add_child(status)
