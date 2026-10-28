@@ -48,6 +48,8 @@ var journal_text: Label
 var exit_box: VBoxContainer
 var chapter_stage := 0
 var finale := ""
+var guard_trust := 0
+var phone_secret := false
 const REQUIRED_CLUES := ["board", "phone", "terminal", "file", "recorder"]
 
 func _ready() -> void:
@@ -75,7 +77,7 @@ func _unhandled_input(event: InputEvent) -> void:
   position = event.position
  elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
   position = event.position
- if position.x < 0:
+ if position.x < 0 or action_panel.visible or journal_panel.visible:
   return
  var normalized := Vector2(position.x/maxf(size.x,1),position.y/maxf(size.y,1))
  if normalized.y >= 0.57 and normalized.y <= 0.78:
@@ -222,6 +224,12 @@ func _interact(key: String) -> void:
   action_text.text += "\nرقم الملف يطابق رقم التجربة. الاسم الموجود بداخله هو اسمك."
  if key == "recorder" and discovered.has("file"):
   action_text.text += "\nالتسجيل يشير إلى أن نسخة أخرى منك وصلت قبلك."
+ if key == "guard":
+  _action_button("أثق بالحارس",func(): _guard_response(true))
+  _action_button("أشك في كلام الحارس",func(): _guard_response(false))
+ if key == "phone":
+  _action_button("أخفي الرسالة",func(): _phone_response(true))
+  _action_button("أكشف الرسالة",func(): _phone_response(false))
  _action_button(str(item["choice"]),func():
   decisions[key] = str(item["choice"])
   info_label.text = "تم تسجيل القرار في دفتر الأدلة."
@@ -286,7 +294,7 @@ func _journal() -> void:
 func _save() -> void:
  var file := FileAccess.open(SAVE,FileAccess.WRITE)
  if file != null:
-  file.store_string(JSON.stringify({"room":room,"discovered":discovered,"decisions":decisions,"chapter_stage":chapter_stage,"finale":finale}))
+  file.store_string(JSON.stringify({"room":room,"discovered":discovered,"decisions":decisions,"chapter_stage":chapter_stage,"finale":finale,"guard_trust":guard_trust,"phone_secret":phone_secret}))
 
 func _load() -> void:
  if not FileAccess.file_exists(SAVE):
@@ -303,6 +311,8 @@ func _load() -> void:
   decisions = parsed.get("decisions",{})
   chapter_stage = int(parsed.get("chapter_stage",0))
   finale = str(parsed.get("finale",""))
+  guard_trust = int(parsed.get("guard_trust",0))
+  phone_secret = bool(parsed.get("phone_secret",false))
 
 func _all_clues_found() -> bool:
  for clue in REQUIRED_CLUES:
@@ -368,3 +378,19 @@ func _draw_environment(w: float, h: float) -> void:
  elif room == "maintenance":
   for i in range(4):
    draw_rect(Rect2(w*(.10+i*.20),h*.36,w*.14,h*.23),Color("#5d584f"))
+
+func _guard_response(trust: bool) -> void:
+ guard_trust = 1 if trust else -1
+ decisions["guard_trust"] = guard_trust
+ action_text.text = "الحارس: افحص كاميرا الممر قبل دخول السجلات." if trust else "الحارس: يبدو أنك تعرف أكثر مما ينبغي."
+ _clear_actions()
+ _action_button("متابعة",func(): action_panel.hide())
+ _save()
+
+func _phone_response(secret: bool) -> void:
+ phone_secret = secret
+ decisions["phone_secret"] = secret
+ action_text.text = "تخفي الرسالة عن الآخرين." if secret else "تشارك الرسالة، ويأتيك رد من رقم مجهول: لقد رآك."
+ _clear_actions()
+ _action_button("متابعة",func(): action_panel.hide())
+ _save()
