@@ -1,21 +1,63 @@
-name: Godot project validation
+name: Validate and build browser preview
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  validate:
+  validate-and-web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Godot 4.4 stable
+      - name: Download Godot and export templates
         run: |
+          set -euo pipefail
           wget -q https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip
           unzip -q Godot_v4.4-stable_linux.x86_64.zip
           chmod +x Godot_v4.4-stable_linux.x86_64
-      - name: Import project
-        run: ./Godot_v4.4-stable_linux.x86_64 --headless --path . --editor --import --quit
-      - name: Parse project and scripts
-        run: ./Godot_v4.4-stable_linux.x86_64 --headless --path . --editor --quit-after 60
+          wget -q https://github.com/godotengine/godot-builds/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
+          unzip -q Godot_v4.4-stable_export_templates.tpz -d godot_templates
+          cp godot_templates/templates/* "$HOME/.local/share/godot/export_templates/4.4.stable/"
+      - name: Import and check scripts
+        run: |
+          set -euo pipefail
+          ./Godot_v4.4-stable_linux.x86_64 --headless --path . --editor --import --quit
+          ./Godot_v4.4-stable_linux.x86_64 --headless --path . --quit-after 3
+      - name: Export browser preview
+        run: |
+          mkdir -p build/web
+          ./Godot_v4.4-stable_linux.x86_64 --headless --path . --export-release "Web" build/web/index.html
+          test -s build/web/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: behind-the-mask-web-preview
+          path: build/web/
+          if-no-files-found: error
+
+  publish-pages:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate-and-web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: behind-the-mask-web-preview
+          path: build/web
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - id: deployment
+        uses: actions/deploy-pages@v4
