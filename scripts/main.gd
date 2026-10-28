@@ -72,7 +72,13 @@ func _menu() -> void:
     _label("نموذج تفاعلي مبكر. القرارات هنا سردية وليست اختبارًا نفسيًا.", 17)
     _button("بدء جولة جديدة", _setup)
     if FileAccess.file_exists(SAVE_PATH):
-        _button("متابعة", func(): if _load(): _scene())
+        _button("متابعة", _resume)
+
+func _resume() -> void:
+    if _load():
+        _scene()
+    else:
+        _menu()
 
 func _setup() -> void:
     state = _fresh_state()
