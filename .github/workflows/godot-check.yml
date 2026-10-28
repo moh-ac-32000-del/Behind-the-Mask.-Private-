@@ -48,9 +48,13 @@ jobs:
           ./Godot_v4.4-stable_linux.x86_64 --headless --path . --quit-after 3
       - name: Export browser preview
         run: |
-          mkdir -p build/web
-          ./Godot_v4.4-stable_linux.x86_64 --headless --path . --export-release "Web" build/web/index.html
-          test -s build/web/index.html
+          set -euo pipefail
+          VERSION="${GITHUB_SHA:0:8}"
+          mkdir -p "build/web/versions/$VERSION"
+          ./Godot_v4.4-stable_linux.x86_64 --headless --path . --export-release "Web" "build/web/versions/$VERSION/index.html"
+          test -s "build/web/versions/$VERSION/index.html"
+          cp "build/web/versions/$VERSION/"* build/web/
+          printf '%s\n' "$GITHUB_SHA" > build/web/build-version.txt
       - uses: actions/upload-artifact@v4
         with:
           name: behind-the-mask-web-preview
