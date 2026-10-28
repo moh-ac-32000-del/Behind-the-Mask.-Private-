@@ -69,7 +69,7 @@ func _process(delta: float) -> void:
   pending = ""
   _interact(key)
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
  var position := Vector2(-1,-1)
  if event is InputEventScreenTouch and event.pressed:
   position = event.position
