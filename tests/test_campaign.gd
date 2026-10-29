@@ -80,14 +80,73 @@ func _run() -> void:
     check(restored.report_history.is_empty(), "No optional report collected without consent")
     restored.free()
     campaign.free()
+ _chapter_cases()
  _save_cases()
  await _scene_cases()
+ await _chapter_scene_cases()
+ await create_timer(.1).timeout
  print("Campaign regression: %d checks, %d failures" % [checks, failures])
  # Only files in this unique test-owned directory are removed.
  for file in DirAccess.get_files_at(test_dir):
   DirAccess.remove_absolute(ProjectSettings.globalize_path(test_dir.path_join(file)))
  DirAccess.remove_absolute(ProjectSettings.globalize_path(test_dir))
  quit(1 if failures else 0)
+
+func _chapter_cases() -> void:
+ for trust in [-1, 1]:
+  for secret in [false, true]:
+   for resolution in ["guard", "neighbor", "private"]:
+    var campaign = fresh()
+    check(campaign.begin("محقق تجريبي", ["مدير", "حارس تجريبي", "جار تجريبي"], false, "chapter_one"), "Start chapter one")
+    check(not campaign.enter("lift").is_empty(), "Key must be collected from guard without requiring trust")
+    check(campaign.choose("guard_trust", trust), "Either guard response advances chapter")
+    check(campaign.enter("lift").is_empty(), "Reach chapter lift")
+    check(not campaign.enter("hall").is_empty(), "Unpowered lift blocks floor access")
+    check(not campaign.chapter_event("code", "2317").is_empty(), "Puzzle needs documented clues, not guessing")
+    check(campaign.enter("lobby").is_empty(), "Missing clues remain recoverable")
+    check(campaign.acquire("notice") and campaign.acquire("visitor_log"), "Acquire both code clues")
+    check(campaign.enter("lift").is_empty(), "Return to code panel")
+    check(not campaign.chapter_event("code", "0000").is_empty(), "Incorrect code gives a recoverable hint")
+    check(campaign.chapter_event("code", "2317").is_empty(), "Correct code restores lift")
+    check(campaign.enter("hall").is_empty(), "Lift unlock survives action")
+    check(campaign.chapter_event("neighbor", "question").is_empty(), "Meet customized neighbor")
+    check(campaign.enter("apartment").is_empty(), "Reach apartment 703")
+    check(not campaign.acquire("file"), "Later chapter secrets unavailable in chapter one")
+    check(campaign.choose("phone_secret", secret), "Choose phone consequence")
+    check(campaign.acquire("receipt"), "Document arrival receipt")
+    check(not campaign.chapter_event("resolve", "private").is_empty(), "No conclusion before explicit deduction")
+    check(not campaign.infer("arrival_gap", ["receipt", "notice"]), "Unrelated clues do not solve contradiction")
+    check(campaign.infer("arrival_gap", ["receipt", "visitor_log"]), "Compare the two conflicting times")
+    if resolution != "private":
+     check(campaign.enter("hall").is_empty(), "Return to chosen witness")
+    if resolution == "guard":
+     check(campaign.enter("lift").is_empty() and campaign.enter("lobby").is_empty(), "Return to guard with evidence")
+    check(campaign.chapter_event("resolve", resolution).is_empty(), "Complete chapter through chosen witness")
+    check(campaign.chapter_flags.get("finished", false), "Chapter completion persisted")
+    var result: String = campaign.chapter_result
+    check(result.contains("م-17") if secret else result.contains("طرقتين"), "Chapter cliffhanger recalls secrecy")
+    if resolution == "guard":
+     check(result.contains("نسخة أخرى من المفتاح") if trust > 0 else result.contains("يرفض"), "Guard scene recalls early trust")
+    elif resolution == "neighbor":
+     check(result.contains("جار تجريبي"), "Neighbor resolution uses configured name")
+    check(not campaign.choose("phone_secret", not secret), "Completed chapter choices frozen")
+    var restored = Campaign.new()
+    restored.store = Store.new(campaign.store.path)
+    check(restored.restore("user://missing-legacy"), "Chapter restores after closing app")
+    check(restored.mode == "chapter_one" and restored.chapter_result == result, "Mode, conclusion and consequences survive restart")
+    restored.free()
+    campaign.free()
+ # Navigation clips clicks outside the walkable floor and avoids the reception desk.
+ var walker = preload("res://scripts/walk_grid.gd").new()
+ var data: Dictionary = preload("res://scripts/game_data.gd").load_world()["chapter_one"]["floor"]["lobby"]
+ walker.configure(data["area"])
+ var polygon := PackedVector2Array()
+ for point in data["area"]:
+  polygon.append(Vector2(point[0], point[1]))
+ var route: PackedVector2Array = walker.path(Vector2(.5,.73), Vector2(.1,.61))
+ check(not route.is_empty(), "Walkable floor yields route")
+ for point in route:
+  check(Geometry2D.is_point_in_polygon(point, polygon), "Walking path remains inside floor polygon")
 
 func _save_cases() -> void:
  var campaign = fresh()
@@ -169,3 +228,52 @@ func _scene_cases() -> void:
  await process_frame
  global_state._apply(original)
  global_state.store = original_store
+
+func _chapter_scene_cases() -> void:
+ var state = root.get_node("GameState")
+ var original: Dictionary = state.snapshot()
+ var original_store = state.store
+ state.store = Store.new(test_dir + "/chapter-ui.json")
+ state.begin("زائر تجريبي", ["مدير", "حارس مخصص", "جار مخصص"], false, "chapter_one")
+ var scene = load("res://scenes/chapter_one.tscn").instantiate()
+ root.add_child(scene)
+ await process_frame
+ check(scene.action_panel.visible and scene.action_text.text.contains("23:42"), "Arrival opens with grounded story and touch tutorial")
+ scene._close_action()
+ scene._interact("guard")
+ check(scene.action_text.text.contains("الحارس"), "Chapter guard dialogue opens")
+ scene._take_action("guard", {"action":"guard", "value":false})
+ check(state.decisions.get("guard_trust") == -1, "Dialogue button applies chapter guard decision")
+ scene._close_action()
+ state.acquire("notice")
+ state.acquire("visitor_log")
+ scene._change_room("lift")
+ scene._interact("panel")
+ scene._take_action("panel", {"action":"keypad"})
+ for value in ["2", "3", "1", "7", "9"]:
+  scene._digit(value)
+ check(scene.digits == "2317", "Touch keypad limits code to four digits")
+ scene.action_buttons.get_child(2).pressed.emit()
+ check(state.chapter_flags.get("lift_ready", false), "Touch keypad submits puzzle without keyboard")
+ scene._close_action()
+ scene._change_room("hall")
+ scene._interact("neighbor")
+ check(scene.action_text.text.contains("جار مخصص"), "Neighbor dialogue uses customized identity")
+ scene._close_action()
+ scene._journal()
+ await process_frame
+ check(scene.journal_panel.visible, "Chapter investigation notebook opens")
+ scene.journal_panel.hide()
+ scene.modal_layer.hide()
+ scene._pause()
+ check(scene.action_panel.visible and scene.action_text.text.contains("توقف"), "Touch-accessible pause blocks movement")
+ state.set_sound(false, .2)
+ var audio_restore = Campaign.new()
+ audio_restore.store = Store.new(state.store.path)
+ check(audio_restore.restore("user://missing-legacy"), "Audio preference save restores")
+ check(not audio_restore.sound_enabled and is_equal_approx(audio_restore.sound_volume, .2), "Sound choice persists across sessions")
+ audio_restore.free()
+ scene.queue_free()
+ await process_frame
+ state._apply(original)
+ state.store = original_store

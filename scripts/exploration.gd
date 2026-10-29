@@ -67,6 +67,9 @@ func _draw() -> void:
   var px := w*(.17+.33*i)
   draw_rect(Rect2(px-w*.055,h*.39,w*.11,h*.11),Color("#8e806b"))
   draw_rect(Rect2(px-w*.045,h*.40,w*.09,h*.09),Color("#c6b9a0"))
+ _draw_actor(w, h)
+
+func _draw_actor(w: float, h: float) -> void:
  var p := Vector2(player.x*w,player.y*h)
  draw_circle(p+Vector2(0,12),w*.034,Color("#030609",.55))
  draw_rect(Rect2(p.x-w*.026,p.y-w*.075,w*.052,w*.075),Color("#78899a"))
@@ -101,8 +104,8 @@ func _ui() -> void:
  exit_box = VBoxContainer.new()
  controls.add_child(exit_box)
  var back := Button.new()
- back.text = "القائمة الرئيسية"
- back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main.tscn"))
+ back.text = "توقف مؤقت / القائمة"
+ back.pressed.connect(_pause)
  controls.add_child(back)
  modal_layer = Control.new()
  modal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -188,6 +191,9 @@ func _render_room() -> void:
   exit_button.pressed.connect(_change_room.bind(next_room))
   exit_box.add_child(exit_button)
  queue_redraw()
+
+func _pause() -> void:
+ get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _approach(key: String, index: int) -> void:
  if action_panel.visible or journal_panel.visible:

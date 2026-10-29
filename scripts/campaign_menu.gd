@@ -3,6 +3,7 @@ var content: VBoxContainer
 var names_input: Array[LineEdit] = []
 
 func _ready() -> void:
+ get_tree().quit_on_go_back = false
  preload("res://scripts/ui_theme.gd").apply(self)
  _menu()
 
@@ -40,14 +41,15 @@ func _button(caption: String, callback: Callable) -> void:
 
 func _menu() -> void:
  _layout("ما وراء القناع")
- _label("المبنى رقم 17 — نموذج التحقيق", 19)
+ _label("المبنى رقم 17 — فصل الوصول", 19)
  _label("تحرّك بلمس الأرض، واقترب من العناصر لفحصها. وثّق الأدلة واربطها لتكشف ما يخفيه المبنى.", 18)
  if not GameState.notice.is_empty():
   _label(GameState.notice, 17)
  if GameState.has_campaign:
-  _button("متابعة التحقيق", _play)
-  _label("الموقع: " + str(GameState.world["rooms"][GameState.room]["title"]), 16)
+  _button("متابعة الفصل الأول" if GameState.mode == "chapter_one" else "متابعة نموذج التحقيق المستورد", _play)
+  _label("الموقع: " + str(GameState.active_data()["rooms"][GameState.room]["title"]), 16)
  _button("بدء لعبة جديدة", _new_game)
+ _button("إعدادات الصوت", _sound_settings)
  if GameState.has_campaign:
   _button("خصوصية سجل القرارات", _privacy)
 
@@ -87,7 +89,7 @@ func _setup() -> void:
   var assigned: Array = []
   for field in names_input:
    assigned.append(field.text)
-  if GameState.begin(player_field.text, assigned, consent.button_pressed):
+  if GameState.begin(player_field.text, assigned, consent.button_pressed, "chapter_one"):
    _play()
   else:
    _menu()
@@ -113,5 +115,25 @@ func _privacy() -> void:
   _label(GameState.notice, 17)
  _button("العودة", _menu)
 
+func _sound_settings() -> void:
+ _layout("إعدادات الصوت")
+ var enabled := CheckBox.new()
+ enabled.text = "تشغيل الأصوات المحيطية والخطوات"
+ enabled.button_pressed = GameState.sound_enabled
+ content.add_child(enabled)
+ _label("مستوى الصوت", 18)
+ var slider := HSlider.new()
+ slider.min_value = 0
+ slider.max_value = 1
+ slider.step = .1
+ slider.value = GameState.sound_volume
+ slider.custom_minimum_size.y = 48
+ content.add_child(slider)
+ _button("تطبيق والعودة", func():
+  GameState.set_sound(enabled.button_pressed, slider.value)
+  _menu()
+ )
+
 func _play() -> void:
- get_tree().change_scene_to_file("res://scenes/exploration.tscn")
+ var path := "res://scenes/chapter_one.tscn" if GameState.mode == "chapter_one" else "res://scenes/exploration.tscn"
+ get_tree().change_scene_to_file(path)
