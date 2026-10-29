@@ -3,3 +3,6 @@
 *.apk
 *.aab
 *.keystore
+build/
+.preview/
+.preview-*.log

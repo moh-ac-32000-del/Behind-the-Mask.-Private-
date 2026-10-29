@@ -46,6 +46,8 @@ jobs:
           set -euo pipefail
           ./Godot_v4.4-stable_linux.x86_64 --headless --path . --editor --import --quit
           ./Godot_v4.4-stable_linux.x86_64 --headless --path . --quit-after 3
+      - name: Test investigation routes and save recovery
+        run: ./Godot_v4.4-stable_linux.x86_64 --headless --path . --script tests/test_campaign.gd
       - name: Export browser preview
         run: |
           set -euo pipefail
